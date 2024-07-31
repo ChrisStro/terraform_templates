@@ -3,35 +3,8 @@ locals {
   ip_subnet = join(".", slice(split(".", var.gateway_cidr), 0, 3))
 }
 
-resource "incus_project" "this" {
-  name        = var.project_name
-  description = "Project used to test samba domains"
-  config = {
-    "features.images"          = false
-    "features.networks"        = false
-    "features.networks.zones"  = false
-    "features.profiles"        = true
-    "features.storage.buckets" = true
-    "features.storage.volumes" = true
-  }
-}
-
-resource "incus_network" "this" {
-  project     = incus_project.this.name
-  name        = var.network_name
-  description = "Network used to test samba active directory"
-
-  config = {
-    "ipv4.address"  = var.gateway_cidr
-    "ipv4.nat"      = "true"
-    "ipv6.address"  = "none"
-    "ipv6.nat"      = "false"
-    "ipv6.dhcp"     = "false"
-  }
-}
-
 resource "incus_profile" "this" {
-  project     = incus_project.this.name
+  project     = var.project_name
   name        = "samba"
   description = "Profile to be used by the cluster VMs"
 
@@ -55,7 +28,7 @@ resource "incus_profile" "this" {
     name = "eth0"
 
     properties = {
-      "network" = incus_network.this.name
+      "network" = var.network_name
       "name"    = "eth0"
     }
   }
@@ -64,7 +37,7 @@ resource "incus_profile" "this" {
 resource "incus_instance" "instances" {
   for_each = var.instance_names
 
-  project  = incus_project.this.name
+  project  = var.project_name
   name     = each.value
   image    = var.image
   profiles = ["default", incus_profile.this.name]
@@ -79,7 +52,7 @@ resource "incus_instance" "instances" {
     name = "eth0"
 
     properties = {
-      "network" = incus_network.this.name
+      "network" = var.network_name
       "name"    = "eth0"
       "ipv4.address"  = "${local.ip_subnet}.${local.first_usable_ip + index(tolist(var.instance_names), each.value) + 1}"
     }
